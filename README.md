@@ -1,2 +1,2 @@
-## 1. Nodejs
+## Nodejs
 ```npm run dev```
