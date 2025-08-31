@@ -20,25 +20,25 @@
     </div>
 </template>
 
-<script lang="ts" setup>
+<script setup>
 import { ref, onMounted } from 'vue';
-import { useChatStore } from '../stores/chat.store';
+import { useChatStore } from '../stores/chat.store.js';
 
 const chatStore = useChatStore();
 const isModelsLoaded = ref(false);
 const defaultModel = 'deepseek-r1:7b'; // 默认首选模型
-var selectedModel = '';
+const selectedModel = ref('');
 // 初始化逻辑
 const initializeModel = () => {
     // 优先级: 1. 本地存储的模型 2. 默认模型 3. 第一个可用模型
     const targetModel = chatStore.selectedModel || defaultModel;
 
     if (chatStore.models.includes(targetModel)) {
-        selectedModel = targetModel;
+        selectedModel.value = targetModel;
         chatStore.updateModel(targetModel);
     } else if (chatStore.models.length > 0) {
-        selectedModel = chatStore.models[0];
-        chatStore.updateModel(selectedModel);
+        selectedModel.value = chatStore.models[0];
+        chatStore.updateModel(selectedModel.value);
     }
 };
 
@@ -52,23 +52,23 @@ onMounted(async () => {
         isModelsLoaded.value = true;
         initializeModel();
         // 确保至少选中第一个模型
-        if (!selectedModel && chatStore.models.length > 0) {
-            selectedModel = chatStore.models[0];
-            chatStore.updateModel(selectedModel);
+        if (!selectedModel.value && chatStore.models.length > 0) {
+            selectedModel.value = chatStore.models[0];
+            chatStore.updateModel(selectedModel.value);
         }
     } catch (error) {
         console.error('模型加载失败:', error);
         // 降级处理：设置默认值
         isModelsLoaded.value = true;
-        selectedModel = defaultModel;
+        selectedModel.value = defaultModel;
         chatStore.models = [defaultModel]; // 确保至少有一个可选项
         chatStore.updateModel(defaultModel);
     }
 });
 
 const updateModel = () => {
-    if (selectedModel) {
-        chatStore.updateModel(selectedModel);
+    if (selectedModel.value) {
+        chatStore.updateModel(selectedModel.value);
     }
 };
 </script>

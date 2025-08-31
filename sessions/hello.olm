@@ -1,0 +1,21 @@
+{
+  "id": "jbaafqaq",
+  "sessionName": "hello",
+  "createdAt": 1756666621724,
+  "lastUpdated": 1756666621724,
+  "messages": [
+    {
+      "messageid": "1",
+      "content": "你今天来陪我玩我真是太高兴了，你有什么想和我说的吗?",
+      "role": "assistant",
+      "timestamp": 1756666612724
+    },
+    {
+      "messageid": "b0583ad3-cbd0-4327-a8d6-bc710ac0fbf9",
+      "content": "hello",
+      "role": "user",
+      "timestamp": 1756666621723
+    }
+  ],
+  "filePath": "D:\\Code\\Project\\Project-myself\\Thinseek127.0.0.1\\sessions\\hello.olm"
+}

@@ -12,7 +12,7 @@
     </div>
 </template>
 
-<script setup lang="ts">
+<script setup>
 import Sidebar from '../components/Sidebar.vue';
 import MessageList from '../components/MessageList.vue';
 import ChatInput from '../components/ChatInput.vue';

@@ -23,9 +23,9 @@
     </div>
 </template>
 
-<script setup lang="ts">
+<script setup>
 import { ref } from 'vue'
-import { useChatStore } from '../stores/chat.store';
+import { useChatStore } from '../stores/chat.store.js';
 import  SessionList  from './SessionList.vue'
 
 const chatStore = useChatStore();

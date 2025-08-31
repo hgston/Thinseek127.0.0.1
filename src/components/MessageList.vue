@@ -3,7 +3,6 @@
         <div v-for="msg in messages" :key="msg.messageid" class="message-item">
             <div :class="['message-bubble', msg.role]">
                 <div class="timestamp">{{ formatTime(msg.timestamp) }}</div>
-                <!-- 优化后的消息内容渲染 -->
                 <div v-if="msg.role === 'assistant'" class="message-content" v-html="renderMarkdown(msg.content)"></div>
                 <div v-else class="message-content">{{ msg.content }}</div>
             </div>
@@ -11,20 +10,20 @@
     </div>
 </template>
 
-<script setup lang="ts">
+<script setup>
 import { ref, watch, nextTick, onMounted } from 'vue';
-import { useChatStore } from '../stores/chat.store';
+import { useChatStore } from '../stores/chat.store.js';
 import { storeToRefs } from 'pinia';
 import { marked } from 'marked';
 import hljs from 'highlight.js';
-import 'highlight.js/styles/github.css'; // 更换更清晰的代码主题
+import DOMPurify from 'dompurify';
+import 'highlight.js/styles/github.css';
 
 const chatStore = useChatStore();
 const { messages } = storeToRefs(chatStore);
-const messageListRef = ref<HTMLElement | null>(null);
+const messageListRef = ref(null);
 
-// 加强滚动逻辑
-const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
+const scrollToBottom = (behavior = 'smooth') => {
     nextTick(() => {
         const container = messageListRef.value;
         if (container) {
@@ -39,32 +38,51 @@ const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
     });
 };
 
-// 优化后的Markdown配置
 marked.setOptions({
     highlight: (code, lang) => {
         return hljs.highlightAuto(code).value;
     },
     breaks: true,
     gfm: true,
-    silent: true // 禁用警告
+    silent: true
 });
 
-// 添加自定义思考标签解析
-const renderMarkdown = (text: string) => {
+const renderMarkdown = (text) => {
     try {
-        // 处理自定义标签
-        const withThinkTags = text.replace(/<think>([\s\S]*?)<\/think>/g, (_, content) => {
-            return `<div class="think-block">${marked.parse(content.trim())}</div>`;
-        });
-
-        return marked.parse(withThinkTags);
+        // 检查是否包含思考过程
+        if (text.includes('现在用户的新消息是') || text.includes('需要考虑用户的内心感受') || text.includes('要回应他的需求')) {
+            // 将思考过程部分包裹在特殊的div中
+            let processedText = text;
+            // 简单的模式匹配，实际应用中可能需要更复杂的解析
+            const thoughtPatterns = [
+                /现在用户的新消息是.*?要回应他的需求/g,
+                /现在用户的新消息是[^。]*?。/g,
+                /需要考虑用户的内心感受.*?。/g,
+                /要回应他的需求.*?。/g
+            ];
+            
+            thoughtPatterns.forEach(pattern => {
+                const matches = text.match(pattern);
+                if (matches) {
+                    matches.forEach(match => {
+                        processedText = processedText.replace(match, `<div class="thought-process">${match}</div>`);
+                    });
+                }
+            });
+            
+            const html = marked.parse(processedText);
+            return DOMPurify.sanitize(html);
+        }
+        
+        const html = marked.parse(text);
+        return DOMPurify.sanitize(html);
     } catch (error) {
         console.error('Markdown渲染错误:', error);
         return text;
     }
 };
 
-const formatTime = (timestamp: number) => {
+const formatTime = (timestamp) => {
     return new Date(timestamp).toLocaleTimeString([], {
         hour: '2-digit',
         minute: '2-digit',
@@ -72,7 +90,6 @@ const formatTime = (timestamp: number) => {
     });
 };
 
-// 优化监听逻辑
 watch(
     () => messages.value.length,
     (newVal, oldVal) => {
@@ -130,7 +147,6 @@ onMounted(() => {
     margin-bottom: 4px;
 }
 
-/* 加强代码块样式 */
 .message-content :deep(pre) {
     background-color: #f6f8fa !important;
     padding: 16px;
@@ -154,26 +170,6 @@ onMounted(() => {
     font-size: 14px;
 }
 
-/* 思考块样式 */
-.message-content :deep(.think-block) {
-    background-color: #f0f8ff;
-    border: 2px dashed #93c5fd;
-    border-radius: 8px;
-    padding: 12px;
-    margin: 12px 0;
-    color: #a8bbf0;
-}
-
-.message-content :deep(.think-block)::before {
-    content: "💭 Thinking Process";
-    display: block;
-    font-weight: 500;
-    font-size: 0.9em;
-    color: #3b82f6;
-    margin-bottom: 8px;
-}
-
-/* 优化滚动条 */
 .message-list::-webkit-scrollbar {
     width: 8px;
     background: transparent;
@@ -186,5 +182,17 @@ onMounted(() => {
 
 .message-list::-webkit-scrollbar-thumb:hover {
     background: #a8a8a8;
+}
+
+/* 思考过程样式 */
+.message-content :deep(.thought-process) {
+    background-color: #f0f7ff;
+    border-left: 4px solid #bfdbfe;
+    padding: 12px 16px;
+    margin: 8px 0;
+    border-radius: 0 8px 8px 0;
+    font-style: italic;
+    color: #4f46e5;
+    font-size: 0.95em;
 }
 </style>

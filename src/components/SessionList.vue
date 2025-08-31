@@ -21,9 +21,9 @@
     </div>
 </template>
 
-<script setup lang="ts">
+<script setup>
 import { computed, onMounted, ref } from 'vue'
-import { useSessionStore, type Session } from '../stores/session.store'
+import { useSessionStore } from '../stores/session.store.js'
 
 const sessionStore = useSessionStore()
 const loading = ref(false)
@@ -38,7 +38,7 @@ onMounted(async () => {
 })
 
 // 日期格式化函数
-const formatTimestamp = (timestamp: number): string => {
+const formatTimestamp = (timestamp) => {
     return new Date(timestamp).toLocaleString('zh-CN', {
         year: 'numeric',
         month: '2-digit',
@@ -55,7 +55,7 @@ const sortedSessions = computed(() => {
 })
 
 // 优化后的会话选择逻辑
-const selectSession = async (session: Session) => {
+const selectSession = async (session) => {
     if (sessionStore.currentSession?.id === session.id) return
 
     try {
@@ -80,7 +80,7 @@ const createNew = async () => {
 }
 
 // 判断当前会话是否激活
-const isActive = (session: Session): boolean => {
+const isActive = (session) => {
     return sessionStore.currentSession?.id === session.id
 }
 </script>

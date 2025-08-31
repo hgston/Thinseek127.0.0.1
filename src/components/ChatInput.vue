@@ -17,9 +17,9 @@
     </div>
 </template>
 
-<script setup lang="ts">
+<script setup>
 import { ref, computed } from 'vue';
-import { useChatStore } from '../stores/chat.store';
+import { useChatStore } from '../stores/chat.store.js';
 import { storeToRefs } from 'pinia';
 
 const chatStore = useChatStore();
