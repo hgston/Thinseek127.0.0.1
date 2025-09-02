@@ -49,94 +49,110 @@ marked.setOptions({
 
 const renderMarkdown = (text) => {
     try {
-        // 检查是否包含标准思考过程格式: 以</think>开头，以</think>结尾
-        if (text.includes('</think>') && text.includes('</think>')) {
-            // 找到第一个</think>和第一个</think>之后的第一个</think>
-            const firstMarkStart = text.indexOf('</think>');
-            const firstMarkEnd = text.indexOf('</think>', firstMarkStart + 1);
+        console.log('原始文本内容:', text);
+        
+        // 处理<think>标签的流式输出
+        // 当检测到<think>开始标记时立即开始渲染思考过程
+        // 当检测到</think>结束标记时立即关闭思考过程渲染
+        let processedText = text;
+        
+        // 检查是否包含<think>开始标记
+        const hasThinkStart = processedText.includes('<think>');
+        // 检查是否包含</think>结束标记
+        const hasThinkEnd = processedText.includes('</think>');
+        
+        console.log(`检测到<think>开始标记: ${hasThinkStart}, 检测到</think>结束标记: ${hasThinkEnd}`);
+        
+        // 如果有开始标记
+        if (hasThinkStart) {
+            // 查找<think>标记的位置
+            const thinkStartIndex = processedText.indexOf('<think>');
             
-            // 确保找到完整的标记对
-            if (firstMarkEnd > firstMarkStart) {
-                // 提取思考过程（不包含标记本身）
-                const thinkingProcess = text.substring(firstMarkStart + 3, firstMarkEnd).trim();
+            // 提取<think>标记之前的内容
+            const beforeThink = processedText.substring(0, thinkStartIndex);
+            
+            // 提取<think>标记之后的内容
+            let afterThinkStart = processedText.substring(thinkStartIndex + 7); // 7是<think>的长度
+            
+            // 如果也有结束标记
+            if (hasThinkEnd) {
+                // 查找</think>标记的位置
+                const thinkEndIndex = afterThinkStart.indexOf('</think>');
                 
-                // 提取实际回答（移除思考过程部分）
-                const actualAnswer = text.substring(0, firstMarkStart) + text.substring(firstMarkEnd + 3).trim();
+                // 提取思考过程内容
+                const thinkingProcess = afterThinkStart.substring(0, thinkEndIndex);
+                
+                // 提取</think>标记之后的内容
+                const afterThinkEnd = afterThinkStart.substring(thinkEndIndex + 8); // 8是</think>的长度
+                
+                // 将思考过程内容转换为HTML格式（替换换行符）
+                const formattedThinkingProcess = thinkingProcess.split('\n').join('<br>');
                 
                 // 组合处理后的文本
-                let processedText = '';
-                if (thinkingProcess) {
-                    processedText += `<div class="thought-process">${thinkingProcess}</div>`;
-                }
-                if (actualAnswer) {
-                    processedText += actualAnswer;
-                }
+                processedText = beforeThink + 
+                  '<div class="thought-process">' + formattedThinkingProcess + '</div>' + 
+                  afterThinkEnd;
+            } else {
+                // 只有开始标记，没有结束标记（流式输出中）
+                // 将<think>之后的所有内容都视为思考过程
+                const thinkingProcess = afterThinkStart;
                 
-                const html = marked.parse(processedText);
-                return DOMPurify.sanitize(html);
+                // 将思考过程内容转换为HTML格式（替换换行符）
+                const formattedThinkingProcess = thinkingProcess.split('\n').join('<br>');
+                
+                // 组合处理后的文本（注意：这里不闭合div，因为流式输出还未结束）
+                processedText = beforeThink + 
+                  '<div class="thought-process">' + formattedThinkingProcess;
+            }
+        } else if (hasThinkEnd) {
+            // 只有结束标记，没有开始标记（这不应该发生，但为了健壮性考虑）
+            const thinkEndIndex = processedText.indexOf('</think>');
+            
+            // 提取</think>标记之前的内容
+            const beforeThinkEnd = processedText.substring(0, thinkEndIndex);
+            
+            // 提取</think>标记之后的内容
+            const afterThinkEnd = processedText.substring(thinkEndIndex + 8);
+            
+            // 闭合思考过程div并组合文本
+            processedText = beforeThinkEnd + '</div>' + afterThinkEnd;
+        }
+        
+        console.log('准备解析的最终文本:', processedText);
+        
+        // 对处理后的文本进行Markdown解析和HTML净化
+        // 使用try-catch确保解析失败时不会影响用户体验
+        let html;
+        try {
+            html = marked.parse(processedText);
+            console.log('解析后的HTML:', html);
+        } catch (markdownError) {
+            console.error('Markdown解析错误:', markdownError);
+            // 解析失败时，返回原始文本的净化版本
+            console.log('Markdown解析失败，尝试直接净化原始文本');
+            try {
+                return DOMPurify.sanitize(processedText);
+            } catch (sanitizeError) {
+                console.error('文本净化错误:', sanitizeError);
+                return processedText; // 最后返回原始文本
             }
         }
         
-        // 检查是否包含其他类型的思考过程格式: Thinking... 开始，...done thinking. 结束
-        if (text.includes('Thinking...') && text.includes('...done thinking.')) {
-            // 将思考过程部分提取出来并包裹在特殊的div中
-            // 分割思考过程和实际回答
-            const thinkingStartIndex = text.indexOf('Thinking...');
-            const thinkingEndIndex = text.indexOf('...done thinking.') + '...done thinking.'.length;
-            
-            // 提取思考过程和实际回答
-            const thinkingProcess = text.substring(thinkingStartIndex, thinkingEndIndex);
-            const actualAnswer = text.substring(thinkingEndIndex).trim();
-            
-            // 处理思考过程，移除首尾标记
-            let cleanThinkingProcess = thinkingProcess
-                .replace('Thinking...', '')
-                .replace('...done thinking.', '')
-                .trim();
-            
-            // 组合处理后的文本
-            let processedText = '';
-            if (cleanThinkingProcess) {
-                processedText += `<div class="thought-process">${cleanThinkingProcess}</div>`;
-            }
-            if (actualAnswer) {
-                processedText += actualAnswer;
-            }
-            
-            const html = marked.parse(processedText);
-            return DOMPurify.sanitize(html);
-        }
-        
-        // 检查是否包含其他类型的思考过程关键词
-        if (text.includes('现在用户的新消息是') || text.includes('需要考虑用户的内心感受') || text.includes('要回应他的需求')) {
-            // 将思考过程部分包裹在特殊的div中
-            let processedText = text;
-            // 简单的模式匹配
-            const thoughtPatterns = [
-                /现在用户的新消息是.*?要回应他的需求/g,
-                /现在用户的新消息是[^。]*?。/g,
-                /需要考虑用户的内心感受.*?。/g,
-                /要回应他的需求.*?。/g
-            ];
-            
-            thoughtPatterns.forEach(pattern => {
-                const matches = text.match(pattern);
-                if (matches) {
-                    matches.forEach(match => {
-                        processedText = processedText.replace(match, `<div class="thought-process">${match}</div>`);
-                    });
-                }
-            });
-            
-            const html = marked.parse(processedText);
-            return DOMPurify.sanitize(html);
-        }
-        
-        const html = marked.parse(text);
-        return DOMPurify.sanitize(html);
+        // 净化HTML
+        const sanitizedHtml = DOMPurify.sanitize(html);
+        console.log('净化后的HTML:', sanitizedHtml);
+        return sanitizedHtml;
     } catch (error) {
         console.error('Markdown渲染错误:', error);
-        return text;
+        console.error('错误发生时的文本:', text);
+        // 在错误情况下，尝试直接渲染原始文本，确保用户至少能看到内容
+        try {
+            console.log('尝试直接净化原始文本');
+            return DOMPurify.sanitize(text);
+        } catch (innerError) {
+            console.error('净化HTML错误:', innerError);
+            return text;
+        }
     }
 };
 
@@ -244,43 +260,66 @@ onMounted(() => {
 
 /* 思考过程样式 */
 .message-content :deep(.thought-process) {
-    background-color: #f0f7ff;
-    border-left: 4px solid #3b82f6;
-    padding: 16px;
-    margin: 12px 0;
-    border-radius: 0 12px 12px 0;
-    font-style: italic;
-    color: #1d4ed8;
+    background: linear-gradient(135deg, #e3f2fd 0%, #f0f8ff 100%);
+    border: 1px solid #bbdefb;
+    border-left: 5px solid #2196f3;
+    padding: 20px;
+    margin: 16px 0;
+    border-radius: 8px;
+    font-style: normal;
+    color: #212121;
     font-size: 0.95em;
-    line-height: 1.7;
-    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+    line-height: 1.8;
+    box-shadow: 0 4px 12px rgba(33, 150, 243, 0.15);
     position: relative;
     overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+/* 思考过程悬停效果 */
+.message-content :deep(.thought-process:hover) {
+    box-shadow: 0 6px 16px rgba(33, 150, 243, 0.25);
+    transform: translateY(-2px);
 }
 
 /* 思考过程伪元素装饰 */
-.message-content :deep(.thought-process)::before {
-    content: "思考过程";
+.message-content :deep(.thought-process::before) {
+    content: "";
     position: absolute;
-    top: -6px;
-    left: 12px;
-    background-color: #3b82f6;
+    top: -12px;
+    left: 16px;
+    background: linear-gradient(135deg, #2196f3 0%, #0d47a1 100%);
     color: white;
-    font-size: 10px;
-    padding: 2px 8px;
-    border-radius: 4px;
+    font-size: 12px;
+    padding: 4px 12px;
+    border-radius: 20px;
     font-style: normal;
     font-weight: 600;
+    box-shadow: 0 2px 6px rgba(33, 150, 243, 0.3);
 }
 
-/* 思考过程首行缩进 */
+/* 思考过程内容样式 */
 .message-content :deep(.thought-process) {
-    text-indent: 1em;
+    padding-top: 0;
 }
 
 /* 思考过程段落样式 */
 .message-content :deep(.thought-process) p {
-    margin: 8px 0;
-    text-indent: 1em;
+    margin: 12px 0;
+    text-indent: 2em;
+}
+
+/* 思考过程中的代码块样式 */
+.message-content :deep(.thought-process code) {
+    background-color: rgba(33, 150, 243, 0.1);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'Fira Code', Monaco, Consolas, 'Courier New', monospace;
+}
+
+/* 思考过程中的强调文本 */
+.message-content :deep(.thought-process strong) {
+    color: #0d47a1;
+    font-weight: 600;
 }
 </style>
