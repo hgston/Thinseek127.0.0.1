@@ -49,7 +49,13 @@ class SessionManager:
             # 自动生成唯一ID
             session_data['id'] = self.generate_suffix(8)
             
-            first_message = session_data.get('messages', [])[1] if len(session_data.get('messages', [])) > 1 else None
+            # 安全地获取用户的第一条消息（如果有）
+            messages = session_data.get('messages', [])
+            first_message = None
+            if messages:
+                # 查找第一条用户消息
+                user_messages = [msg for msg in messages if msg.get('role') == 'user']
+                first_message = user_messages[0] if user_messages else messages[0]
             if first_message and first_message.get('content'):
                 content_prefix = first_message['content'][:7]
                 content_prefix = ''.join(c if c.isalnum() or c in '_\u4e00-\u9fa5' else '_' for c in content_prefix)
@@ -135,6 +141,14 @@ class SessionManager:
                 print('缺少filePath参数')
                 return {'error': '缺少filePath参数'}, 400
             
+            # 安全检查：确保文件路径在session_dir目录内
+            if not os.path.normpath(file_path).startswith(os.path.normpath(self.sessions_dir)):
+                print('不安全的文件路径:', file_path)
+                return {'error': '不安全的文件路径'}, 400
+            
+            # 确保目录存在
+            os.makedirs(os.path.dirname(file_path), exist_ok=True)
+            
             print(f'准备保存到文件: {file_path}')
             # 明确指定使用utf-8编码来处理Unicode字符
             with open(file_path, 'w', encoding='utf-8') as f:
@@ -163,8 +177,9 @@ def get_sessions():
         return jsonify(result[0]), result[1]
     return jsonify(result)
 
-@app.route('/catsessions', methods=['POST'])
-def cat_session():
+@app.route('/getsession', methods=['POST'])
+def get_session():
+    """获取指定会话的详细内容"""
     data = request.get_json()
     result = session_manager.cat_session(data.get('filePath'))
     if isinstance(result, tuple):
@@ -179,5 +194,22 @@ def save_session():
         return jsonify(result[0]), result[1]
     return jsonify(result), 200
 
+import requests
+
+def check_ollama_service():
+    """检查Ollama服务是否可用"""
+    try:
+        response = requests.get('http://localhost:11434/api/tags', timeout=3)
+        return response.status_code == 200
+    except:
+        return False
+
 if __name__ == '__main__':
+    # 检查Ollama服务可用性
+    ollama_available = check_ollama_service()
+    if not ollama_available:
+        print("警告: Ollama服务不可用 (端口11434)。请确保Ollama服务已启动。")
+    else:
+        print("Ollama服务已成功连接。")
+    
     app.run(host='localhost', port=3001, debug=True)

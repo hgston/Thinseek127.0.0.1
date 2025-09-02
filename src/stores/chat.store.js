@@ -118,14 +118,30 @@ export const useChatStore = defineStore('chat', {
             
             // 用户发送消息后立即尝试保存
             const sessionStore = useSessionStore();
+            
+            // 保存当前的消息列表，包括用户刚发送的消息
+            const currentMessages = [...this.messages];
+            
             if (!sessionStore.currentSession) {
+                // 创建新会话
                 await sessionStore.createNewSession();
+                
+                // 将会话的第一条消息（欢迎消息）替换为完整的消息列表
+                // 这样用户的第一条消息就不会丢失
+                this.messages = currentMessages;
             } else {
                 this.debouncedSave(); // 防抖保存
             }
 
             this.isLoading = true;
+            this.error = null; // 重置错误状态
             try {
+                // 先检查Ollama服务是否可用
+                const isServiceAvailable = await ollamaService.checkService();
+                if (!isServiceAvailable) {
+                    throw new Error('Ollama服务未运行，请先启动Ollama服务');
+                }
+                
                 const messagesForOllama = this.messages.map(msg => ({
                     role: msg.role === 'user' ? 'user' : 'assistant',
                     content: msg.content
@@ -133,7 +149,7 @@ export const useChatStore = defineStore('chat', {
                 
                 const stream = await ollamaService.sendMessage(messagesForOllama, this.selectedModel);
                 if (!stream) {
-                    this.error = '请求失败';
+                    this.error = '请求失败，Ollama服务未返回数据';
                     return;
                 }
 
@@ -171,15 +187,27 @@ export const useChatStore = defineStore('chat', {
                                 }
                             }
                         } catch (error) {
-                            console.error('解析错误:', error, '原始数据:', line);
-                        }
+                    console.error('解析错误:', error, '原始数据:', line);
+                    // 可以考虑添加错误计数，如果错误过多，给出提示
+                }
                     }
                 }
                 // 消息完成后再次保存
                 await this.saveChatHistory();
             } catch (error) {
-                this.error = '请求失败';
-                console.error(error);
+                // 显示友好的错误消息给用户
+                this.error = error.message || '请求失败，请稍后重试';
+                console.error('发送消息错误:', error);
+                
+                // 在聊天记录中添加一个错误消息
+                const errorMessage = {
+                    messageid: uuidv4(),
+                    content: `很抱歉，无法获取AI响应：${this.error}`,
+                    role: 'assistant',
+                    timestamp: Date.now(),
+                    isError: true
+                };
+                this.messages.push(errorMessage);
             } finally {
                 this.isLoading = false;
             }

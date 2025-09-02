@@ -49,11 +49,69 @@ marked.setOptions({
 
 const renderMarkdown = (text) => {
     try {
-        // 检查是否包含思考过程
+        // 检查是否包含标准思考过程格式: 以</think>开头，以</think>结尾
+        if (text.includes('</think>') && text.includes('</think>')) {
+            // 找到第一个</think>和第一个</think>之后的第一个</think>
+            const firstMarkStart = text.indexOf('</think>');
+            const firstMarkEnd = text.indexOf('</think>', firstMarkStart + 1);
+            
+            // 确保找到完整的标记对
+            if (firstMarkEnd > firstMarkStart) {
+                // 提取思考过程（不包含标记本身）
+                const thinkingProcess = text.substring(firstMarkStart + 3, firstMarkEnd).trim();
+                
+                // 提取实际回答（移除思考过程部分）
+                const actualAnswer = text.substring(0, firstMarkStart) + text.substring(firstMarkEnd + 3).trim();
+                
+                // 组合处理后的文本
+                let processedText = '';
+                if (thinkingProcess) {
+                    processedText += `<div class="thought-process">${thinkingProcess}</div>`;
+                }
+                if (actualAnswer) {
+                    processedText += actualAnswer;
+                }
+                
+                const html = marked.parse(processedText);
+                return DOMPurify.sanitize(html);
+            }
+        }
+        
+        // 检查是否包含其他类型的思考过程格式: Thinking... 开始，...done thinking. 结束
+        if (text.includes('Thinking...') && text.includes('...done thinking.')) {
+            // 将思考过程部分提取出来并包裹在特殊的div中
+            // 分割思考过程和实际回答
+            const thinkingStartIndex = text.indexOf('Thinking...');
+            const thinkingEndIndex = text.indexOf('...done thinking.') + '...done thinking.'.length;
+            
+            // 提取思考过程和实际回答
+            const thinkingProcess = text.substring(thinkingStartIndex, thinkingEndIndex);
+            const actualAnswer = text.substring(thinkingEndIndex).trim();
+            
+            // 处理思考过程，移除首尾标记
+            let cleanThinkingProcess = thinkingProcess
+                .replace('Thinking...', '')
+                .replace('...done thinking.', '')
+                .trim();
+            
+            // 组合处理后的文本
+            let processedText = '';
+            if (cleanThinkingProcess) {
+                processedText += `<div class="thought-process">${cleanThinkingProcess}</div>`;
+            }
+            if (actualAnswer) {
+                processedText += actualAnswer;
+            }
+            
+            const html = marked.parse(processedText);
+            return DOMPurify.sanitize(html);
+        }
+        
+        // 检查是否包含其他类型的思考过程关键词
         if (text.includes('现在用户的新消息是') || text.includes('需要考虑用户的内心感受') || text.includes('要回应他的需求')) {
             // 将思考过程部分包裹在特殊的div中
             let processedText = text;
-            // 简单的模式匹配，实际应用中可能需要更复杂的解析
+            // 简单的模式匹配
             const thoughtPatterns = [
                 /现在用户的新消息是.*?要回应他的需求/g,
                 /现在用户的新消息是[^。]*?。/g,
@@ -187,12 +245,42 @@ onMounted(() => {
 /* 思考过程样式 */
 .message-content :deep(.thought-process) {
     background-color: #f0f7ff;
-    border-left: 4px solid #bfdbfe;
-    padding: 12px 16px;
-    margin: 8px 0;
-    border-radius: 0 8px 8px 0;
+    border-left: 4px solid #3b82f6;
+    padding: 16px;
+    margin: 12px 0;
+    border-radius: 0 12px 12px 0;
     font-style: italic;
-    color: #4f46e5;
+    color: #1d4ed8;
     font-size: 0.95em;
+    line-height: 1.7;
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+    position: relative;
+    overflow: hidden;
+}
+
+/* 思考过程伪元素装饰 */
+.message-content :deep(.thought-process)::before {
+    content: "思考过程";
+    position: absolute;
+    top: -6px;
+    left: 12px;
+    background-color: #3b82f6;
+    color: white;
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-style: normal;
+    font-weight: 600;
+}
+
+/* 思考过程首行缩进 */
+.message-content :deep(.thought-process) {
+    text-indent: 1em;
+}
+
+/* 思考过程段落样式 */
+.message-content :deep(.thought-process) p {
+    margin: 8px 0;
+    text-indent: 1em;
 }
 </style>

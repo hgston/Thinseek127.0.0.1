@@ -23,7 +23,7 @@ export const useSessionStore = defineStore('session', {
                 }).replace(/[/:]/g, '-');
                 
                 const newSession = {
-                    id: '0',
+                    id: crypto.randomUUID(), // 使用UUID避免ID冲突
                     sessionName: `对话 ${timestamp}`,
                     createdAt: Date.now(),
                     lastUpdated: Date.now(),
@@ -102,7 +102,7 @@ export const useSessionStore = defineStore('session', {
                 };
                 
                 console.log('准备发送保存请求，filePath:', sessionToSave.filePath);
-                console.log('保存请求前检查: 会话ID=' + sessionToSave.id + ', 标题=' + sessionToSave.title);
+                console.log('保存请求前检查: 会话ID=' + sessionToSave.id + ', 标题=' + sessionToSave.sessionName);
                 
                 // 发送保存请求
                 console.log('开始发送保存请求到后端...');
@@ -156,10 +156,10 @@ export const useSessionStore = defineStore('session', {
         // 切换会话
         async switchSession(session) {
             try {
-                const response = await fetch(`http://localhost:3001/catsessions`, {
+                const response = await fetch(`http://localhost:3001/getsession`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(session)
+                    body: JSON.stringify({ filePath: session.filePath }) // 只传递必要的filePath
                 });
 
                 const nowsession = await response.json();
